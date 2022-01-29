@@ -1,6 +1,15 @@
 pub struct Message {
     pub header: Header,
-    pub query: Query,
+    pub question: Question,
+}
+
+impl Message {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut vec = Vec::new();
+        vec.extend(self.header.to_byte());
+        vec.extend(self.question.to_byte());
+        vec
+    }
 }
 
 pub struct Header {
@@ -105,4 +114,35 @@ impl Header {
     }
 }
 
-pub struct Query {}
+pub struct Question {
+    pub qname: Vec<u8>,
+    pub qtype: u16,
+    pub qclass: u16,
+}
+
+impl Question {
+    pub fn new(fqdn: &str) -> Self {
+        let mut qname = Vec::new();
+        for word in fqdn.split('.') {
+            qname.push(word.len() as u8);
+            qname.extend(word.as_bytes());
+        }
+        qname.push(0 as u8);
+
+        Self {
+            qname: qname,
+            qtype: 1, // 1: A, 5: CNAME, 28: AAAA
+            qclass: 1,
+        }
+    }
+
+    pub fn to_byte(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend(self.qname.iter());
+        bytes.push((self.qtype / 256) as u8);
+        bytes.push((self.qtype % 256) as u8);
+        bytes.push((self.qclass / 256) as u8);
+        bytes.push((self.qclass % 256) as u8);
+        bytes
+    }
+}
