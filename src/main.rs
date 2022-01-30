@@ -30,6 +30,11 @@ fn main() {
         number_of_bytes, src_addr
     );
     println!("{:?}", buf);
+
+    let mut ret_header: [u8; 12] = Default::default();
+    ret_header.copy_from_slice(&buf[0..12]);
+    let ret_header = message::Header::parse(&ret_header);
+    print_header(&ret_header);
 }
 
 fn print_header(header: &message::Header) {
