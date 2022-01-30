@@ -1,3 +1,5 @@
+use packed_struct::prelude::*;
+
 pub struct Message {
     pub header: Header,
     pub question: Question,
@@ -12,12 +14,20 @@ impl Message {
     }
 }
 
+#[derive(PackedStruct)]
+#[packed_struct(bit_numbering = "msb0", endian = "msb")]
 pub struct Header {
+    #[packed_field]
     pub id: u16,
+    #[packed_field]
     pub flags: u16,
+    #[packed_field]
     pub qd_count: u16,
+    #[packed_field]
     pub an_count: u16,
+    #[packed_field]
     pub ns_count: u16,
+    #[packed_field]
     pub ar_count: u16,
 }
 
@@ -96,6 +106,7 @@ impl Header {
         (self.flags & 0b1111) as u8
     }
 
+    // packed_struct を使えば簡単だが、あえて
     pub fn to_byte(&self) -> [u8; 12] {
         let mut bytes: [u8; 12] = [0; 12];
         bytes[0] = (self.id / 256) as u8;
@@ -111,6 +122,11 @@ impl Header {
         bytes[10] = (self.ar_count / 256) as u8;
         bytes[11] = (self.ar_count % 256) as u8;
         bytes
+    }
+
+    pub fn parse(bytes: &[u8; 12]) -> Self {
+        let unpacked = Header::unpack(bytes).expect("Unpack error");
+        unpacked
     }
 }
 
