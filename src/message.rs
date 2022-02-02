@@ -130,8 +130,10 @@ impl Header {
     }
 }
 
+#[derive(Debug)]
 pub struct Question {
     pub qname: Vec<u8>,
+    pub qname_dec: String,
     pub qtype: u16,
     pub qclass: u16,
 }
@@ -147,6 +149,7 @@ impl Question {
 
         Self {
             qname: qname,
+            qname_dec: "".to_string(),
             qtype: 1, // 1: A, 5: CNAME, 28: AAAA
             qclass: 1,
         }
@@ -160,5 +163,134 @@ impl Question {
         bytes.push((self.qclass / 256) as u8);
         bytes.push((self.qclass % 256) as u8);
         bytes
+    }
+
+    pub fn parse(resources: &[u8], count: usize) -> (Vec<Self>, usize) {
+        let mut selfs = Vec::new();
+
+        let mut position = 0;
+        loop {
+            // NAME
+            let name_pair = Resource::extract_name(resources, resources, position);
+            let name = name_pair.0;
+            // let mut name_vec = Vec::new();
+            // name_vec.extend(name.into_bytes());
+            position = name_pair.1;
+            // TYPE
+            let qtype = u16::from(resources[position]) * 256 + u16::from(resources[position + 1]);
+            position += 2;
+            // CLASS
+            let class = u16::from(resources[position]) * 256 + u16::from(resources[position + 1]);
+            position += 2;
+
+            let resource = Self {
+                qname: Vec::new(),
+                qname_dec: name,
+                qtype: qtype,
+                qclass: class,
+            };
+            selfs.push(resource);
+
+            if selfs.len() >= count {
+                break;
+            }
+        }
+
+        (selfs, position)
+    }
+}
+
+#[derive(Debug)]
+pub struct Resource {
+    pub name: String,
+    pub rr_type: u16,
+    pub data_class: u16,
+    pub ttl: u32,
+    pub rdlength: u16,
+    pub rdata: Vec<u8>,
+}
+
+impl Resource {
+    /** Message: メッセージ圧縮での参照に必要 */
+    pub fn parse(message: &[u8], resources: &[u8], count: usize) -> Vec<Self> {
+        let mut selfs = Vec::new();
+
+        let mut position = 0;
+        loop {
+            // NAME
+            let name_pair = Resource::extract_name(message, resources, position);
+            let name = name_pair.0;
+            position = name_pair.1;
+            // TYPE
+            let rr_type = u16::from(resources[position]) * 256 + u16::from(resources[position + 1]);
+            position += 2;
+            // CLASS
+            let class = u16::from(resources[position]) * 256 + u16::from(resources[position + 1]);
+            position += 2;
+            // TTL
+            let ttl = u32::from(resources[position]) * 256 * 256 * 256
+                + u32::from(resources[position + 1]) * 256 * 256
+                + u32::from(resources[position + 2]) * 256
+                + u32::from(resources[position + 3]);
+            position += 4;
+            // RDLENGTH
+            let rdlength =
+                u16::from(resources[position]) * 256 + u16::from(resources[position + 1]);
+            position += 2;
+            // RDATA
+            let mut rdata: Vec<u8> = Vec::new();
+            let begin = position;
+            let end = position + usize::from(rdlength);
+            rdata.extend(resources[begin..end].into_iter());
+            position += usize::from(rdlength);
+
+            let resource = Self {
+                name: name,
+                rr_type: rr_type,
+                data_class: class,
+                ttl: ttl,
+                rdlength: rdlength,
+                rdata: rdata,
+            };
+            selfs.push(resource);
+
+            if selfs.len() >= count {
+                break;
+            }
+        }
+
+        selfs
+    }
+
+    /** メッセージ圧縮に対応した NAME の抽出 */
+    fn extract_name(message: &[u8], resources: &[u8], offset: usize) -> (String, usize) {
+        let mut position = usize::from(offset);
+        let mut name = Vec::new();
+        loop {
+            let length = resources[position];
+            position += 1;
+            // 末尾である
+            if length == 0 {
+                break;
+            }
+            // 圧縮である
+            if length & 0b11000000 == 0b11000000 {
+                let offset =
+                    usize::from(length & 0b00111111) * 256 + usize::from(resources[position]);
+                let reference_name = Resource::extract_name(message, message, offset);
+                name.push(reference_name.0);
+                position += 1;
+                break;
+            }
+            // 通常のデータ
+            let begin = position;
+            let end = begin + usize::from(length);
+            let chars = &resources[begin..end];
+            let str = String::from_utf8_lossy(chars).into_owned();
+            name.push(str);
+            position += usize::from(length);
+        }
+
+        (itertools::join(name, "."), position)
     }
 }
