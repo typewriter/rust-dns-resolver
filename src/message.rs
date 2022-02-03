@@ -208,6 +208,8 @@ pub struct Resource {
     pub ttl: u32,
     pub rdlength: u16,
     pub rdata: Vec<u8>,
+
+    pub cname: String,
 }
 
 impl Resource {
@@ -244,6 +246,13 @@ impl Resource {
             rdata.extend(resources[begin..end].into_iter());
             position += usize::from(rdlength);
 
+            // タイプ別のフィールド
+            let mut cname = "".to_string();
+            if rr_type == 5 {
+                let cname_tuple = Resource::extract_name(message, rdata.as_slice(), 0);
+                cname = cname_tuple.0;
+            }
+
             let resource = Self {
                 name: name,
                 rr_type: rr_type,
@@ -251,6 +260,7 @@ impl Resource {
                 ttl: ttl,
                 rdlength: rdlength,
                 rdata: rdata,
+                cname: cname,
             };
             selfs.push(resource);
 
