@@ -12,7 +12,7 @@ fn main() {
             // 2091,
             1000, 0b0, 0b0000, 0b0, 0b0, 0b1, 0b0, 0b000, 0b0000, 1, 0, 0, 0,
         ),
-        question: message::Question::new("www.nyamikan.net"),
+        question: message::Question::new("nyamikan.net", 2, 1),
     };
     print_header(&message.header);
 

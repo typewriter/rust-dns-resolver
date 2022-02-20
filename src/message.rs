@@ -139,7 +139,7 @@ pub struct Question {
 }
 
 impl Question {
-    pub fn new(fqdn: &str) -> Self {
+    pub fn new(fqdn: &str, qtype: u16, qclass: u16) -> Self {
         let mut qname = Vec::new();
         for word in fqdn.split('.') {
             qname.push(word.len() as u8);
@@ -150,8 +150,8 @@ impl Question {
         Self {
             qname: qname,
             qname_dec: "".to_string(),
-            qtype: 1, // 1: A, 5: CNAME, 28: AAAA
-            qclass: 1,
+            qtype: qtype, // 1: A, 5: CNAME, 28: AAAA
+            qclass: qclass,
         }
     }
 
@@ -210,6 +210,7 @@ pub struct Resource {
     pub rdata: Vec<u8>,
 
     pub cname: String,
+    pub nsdname: String,
 }
 
 impl Resource {
@@ -253,6 +254,12 @@ impl Resource {
                 cname = cname_tuple.0;
             }
 
+            let mut nsdname = "".to_string();
+            if rr_type == 2 {
+                let nsdname_tuple = Resource::extract_name(message, rdata.as_slice(), 0);
+                nsdname = nsdname_tuple.0;
+            }
+
             let resource = Self {
                 name: name,
                 rr_type: rr_type,
@@ -261,6 +268,7 @@ impl Resource {
                 rdlength: rdlength,
                 rdata: rdata,
                 cname: cname,
+                nsdname: nsdname,
             };
             selfs.push(resource);
 
