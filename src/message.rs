@@ -201,6 +201,12 @@ impl Question {
 }
 
 #[derive(Debug)]
+pub enum IpAddr {
+    V4(String),
+    V6(String),
+}
+
+#[derive(Debug)]
 pub struct Resource {
     pub name: String,
     pub rr_type: u16,
@@ -209,6 +215,7 @@ pub struct Resource {
     pub rdlength: u16,
     pub rdata: Vec<u8>,
 
+    pub address: IpAddr,
     pub cname: String,
     pub nsdname: String,
 }
@@ -260,6 +267,27 @@ impl Resource {
                 nsdname = nsdname_tuple.0;
             }
 
+            let mut address = IpAddr::V4("".to_string());
+            if rr_type == 1 && rdata.len() == 4 {
+                address = IpAddr::V4(format!(
+                    "{}.{}.{}.{}",
+                    rdata[0], rdata[1], rdata[2], rdata[3]
+                ));
+            }
+            if rr_type == 28 && rdata.len() == 16 {
+                address = IpAddr::V6(format!(
+                    "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+                    u16::from(rdata[0]) * 256 + u16::from(rdata[1]),
+                    u16::from(rdata[2]) * 256 + u16::from(rdata[3]),
+                    u16::from(rdata[4]) * 256 + u16::from(rdata[5]),
+                    u16::from(rdata[6]) * 256 + u16::from(rdata[7]),
+                    u16::from(rdata[8]) * 256 + u16::from(rdata[9]),
+                    u16::from(rdata[10]) * 256 + u16::from(rdata[11]),
+                    u16::from(rdata[12]) * 256 + u16::from(rdata[13]),
+                    u16::from(rdata[14]) * 256 + u16::from(rdata[15]),
+                ));
+            }
+
             let resource = Self {
                 name: name,
                 rr_type: rr_type,
@@ -269,6 +297,7 @@ impl Resource {
                 rdata: rdata,
                 cname: cname,
                 nsdname: nsdname,
+                address: address,
             };
             selfs.push(resource);
 
