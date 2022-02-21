@@ -215,9 +215,11 @@ pub struct Resource {
     pub rdlength: u16,
     pub rdata: Vec<u8>,
 
-    pub address: IpAddr,
-    pub cname: String,
-    pub nsdname: String,
+    pub address: IpAddr,  // A, AAAA
+    pub cname: String,    // CNAME
+    pub nsdname: String,  // NS
+    pub preference: u16,  // MX
+    pub exchange: String, // MX
 }
 
 impl Resource {
@@ -288,6 +290,14 @@ impl Resource {
                 ));
             }
 
+            let mut preference: u16 = 0;
+            let mut exchange = "".to_string();
+            if rr_type == 15 {
+                preference = u16::from(rdata[0]) * 256 + u16::from(rdata[1]);
+                let exchange_tuple = Resource::extract_name(message, rdata.as_slice(), 2);
+                exchange = exchange_tuple.0;
+            }
+
             let resource = Self {
                 name: name,
                 rr_type: rr_type,
@@ -298,6 +308,8 @@ impl Resource {
                 cname: cname,
                 nsdname: nsdname,
                 address: address,
+                preference: preference,
+                exchange: exchange,
             };
             selfs.push(resource);
 
