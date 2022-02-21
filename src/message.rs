@@ -220,6 +220,14 @@ pub struct Resource {
     pub nsdname: String,  // NS
     pub preference: u16,  // MX
     pub exchange: String, // MX
+    pub mname: String,    // SOA
+    pub rname: String,    // SOA
+    pub serial: u32,      // SOA
+    pub refresh: u32,     // SOA
+    pub retry: u32,       // SOA
+    pub expire: u32,      // SOA
+    pub minimum: u32,     // SOA
+    pub txt_data: String, // TXT
 }
 
 impl Resource {
@@ -298,6 +306,38 @@ impl Resource {
                 exchange = exchange_tuple.0;
             }
 
+            let mut mname = "".to_string();
+            let mut rname = "".to_string();
+            let mut serial: u32 = 0;
+            let mut refresh: u32 = 0;
+            let mut retry: u32 = 0;
+            let mut expire: u32 = 0;
+            let mut minimum: u32 = 0;
+            if rr_type == 6 {
+                let mname_tuple = Resource::extract_name(message, rdata.as_slice(), 0);
+                mname = mname_tuple.0;
+                let rname_tuple = Resource::extract_name(message, rdata.as_slice(), mname_tuple.1);
+                rname = rname_tuple.0;
+                let offset = rname_tuple.1;
+                let mut v = (0..5).map(|i| {
+                    u32::from(rdata[offset + i * 4 + 0]) * 256 * 256 * 256
+                        + u32::from(rdata[offset + i * 4 + 1]) * 256 * 256
+                        + u32::from(rdata[offset + i * 4 + 2]) * 256
+                        + u32::from(rdata[offset + i * 4 + 3])
+                });
+                serial = v.next().unwrap();
+                refresh = v.next().unwrap();
+                retry = v.next().unwrap();
+                expire = v.next().unwrap();
+                minimum = v.next().unwrap();
+            }
+
+            let mut txt_data = "".to_string();
+            if rr_type == 16 {
+                let end = usize::from(rdata[0]) + 1;
+                txt_data = String::from_utf8_lossy(&rdata[1..end]).into_owned();
+            }
+
             let resource = Self {
                 name: name,
                 rr_type: rr_type,
@@ -310,6 +350,14 @@ impl Resource {
                 address: address,
                 preference: preference,
                 exchange: exchange,
+                mname: mname,
+                rname: rname,
+                serial: serial,
+                refresh: refresh,
+                retry: retry,
+                expire: expire,
+                minimum: minimum,
+                txt_data: txt_data,
             };
             selfs.push(resource);
 
