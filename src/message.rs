@@ -401,3 +401,39 @@ impl Resource {
         (itertools::join(name, "."), position)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Header;
+
+    #[test]
+    fn header_bytes() {
+        let header = Header::create(255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0);
+
+        let actual = header.to_byte();
+        let expect: [u8; 12] = [0, 255, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0];
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn header_parse() {
+        let header: [u8; 12] = [
+            0xF7, 0x67, 0x81, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+        ];
+
+        let parsed_header = Header::parse(&header);
+        assert_eq!(parsed_header.id, 0xF767);
+        assert_eq!(parsed_header.qr(), 1);
+        assert_eq!(parsed_header.opcode(), 0);
+        assert_eq!(parsed_header.aa(), 0);
+        assert_eq!(parsed_header.tc(), 0);
+        assert_eq!(parsed_header.rd(), 1);
+        assert_eq!(parsed_header.ra(), 0);
+        assert_eq!(parsed_header.z(), 0);
+        assert_eq!(parsed_header.rcode(), 0);
+        assert_eq!(parsed_header.qd_count, 1);
+        assert_eq!(parsed_header.an_count, 2);
+        assert_eq!(parsed_header.ns_count, 0);
+        assert_eq!(parsed_header.ar_count, 0);
+    }
+}
