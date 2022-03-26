@@ -404,7 +404,7 @@ impl Resource {
 
 #[cfg(test)]
 mod tests {
-    use super::Header;
+    use super::{Header, Question};
 
     #[test]
     fn header_bytes() {
@@ -435,5 +435,31 @@ mod tests {
         assert_eq!(parsed_header.an_count, 2);
         assert_eq!(parsed_header.ns_count, 0);
         assert_eq!(parsed_header.ar_count, 0);
+    }
+
+    #[test]
+    fn question_bytes() {
+        let question = Question::new("nyamikan.net", 2, 1);
+
+        let actual = question.to_byte();
+        let expect = vec![
+            8, 0x6e, 0x79, 0x61, 0x6d, 0x69, 0x6b, 0x61, 0x6e, 3, 0x6e, 0x65, 0x74, 0, 0, 2, 0, 1,
+        ];
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn question_parse() {
+        let question = vec![
+            3, 0x77, 0x77, 0x77, 8, 0x6e, 0x79, 0x61, 0x6d, 0x69, 0x6b, 0x61, 0x6e, 3, 0x6e, 0x65,
+            0x74, 0, 0, 2, 0, 1,
+        ];
+
+        let parsed_questions = Question::parse(&question, 1);
+        assert_eq!(parsed_questions.0.len(), 1);
+        let parsed_question = &parsed_questions.0[0];
+        assert_eq!(parsed_question.qname_dec, "www.nyamikan.net");
+        assert_eq!(parsed_question.qtype, 2);
+        assert_eq!(parsed_question.qclass, 1);
     }
 }
