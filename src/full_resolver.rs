@@ -1,6 +1,7 @@
 use core::time;
 use rand::Rng;
-use std::{net::UdpSocket, thread::sleep};
+use std::net::UdpSocket;
+use std::thread::sleep;
 
 use crate::message;
 
@@ -97,16 +98,29 @@ pub fn resolve(fqdn: &str, qtype: u16) {
         // 次の問い合わせ先を探す
         let begin = (ret_header.qd_count + ret_header.an_count) as usize;
         let end = begin + (ret_header.ns_count - 1) as usize;
-        let mut ns_records = &resources[begin..end];
+        let ns_records = &resources[begin..end];
 
         let begin = (ret_header.qd_count + ret_header.an_count + ret_header.ns_count) as usize;
         let end = begin + (ret_header.ar_count - 1) as usize;
-        let mut ar_records = &resources[begin..end];
+        let ar_records = &resources[begin..end];
 
-        println!("NS records: {:?}", ns_records);
-        println!("AR records: {:?}", ar_records);
+        // A レコード持ってる AR レコードを適当に探すか・・・？
+        println!(
+            "{:?} について、 {:?} とかが知ってるらしい。問い合わせてみましょう",
+            ns_records[0].name, ns_records[0].nsdname
+        );
 
-        // FIXME: 未実装
-        break;
+        for ar_record in ar_records {
+            if ar_record.rr_type == 1 {
+                match &ar_record.address {
+                    message::IpAddr::V4(ipv4) => {
+                        // 所有権（ライフタイム）の問題が...
+                        nameserver = &ipv4.as_str();
+                    }
+                    message::IpAddr::V6(_) => todo!(),
+                }
+                break;
+            }
+        }
     }
 }
