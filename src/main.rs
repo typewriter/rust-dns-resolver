@@ -1,10 +1,15 @@
 mod message;
+mod full_resolver;
 
 use std::net::UdpSocket;
 
 use crate::message::Header;
 
 fn main() {
+    full_resolver::resolve("nyamikan.net", 16);
+}
+
+/*
     // Request
     let message = message::Message {
         header: message::Header::create(
@@ -71,3 +76,4 @@ fn print_header(header: &message::Header) {
         header.ar_count,
     );
 }
+*/
