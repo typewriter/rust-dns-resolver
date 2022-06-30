@@ -22,7 +22,7 @@ const ROOT_NAME_SERVERS: [&str; 13] = [
     "202.12.27.33",
 ];
 
-pub fn resolve_iterative(fqdn: &str, qtype: u16, nameserver: &str) {
+pub fn resolve_iterative(fqdn: &str, qtype: u16, nameserver: &str) -> Option<String> {
     let mut rng = rand::thread_rng();
     let id: u16 = rng.gen();
 
@@ -78,51 +78,72 @@ pub fn resolve_iterative(fqdn: &str, qtype: u16, nameserver: &str) {
     // 判定
     if ret_header.an_count > 0 {
         println!("結果が得られました。終了します");
-        return;
+        let end = ret_header.an_count as usize;
+        let an_records = &resources[0..end];
+
+        println!("Answer records: {:?}", an_records);
+
+        match &an_records[0].address {
+            message::IpAddr::V4(ipv4) => return Some(ipv4.to_string()),
+            message::IpAddr::V6(_) => return None,
+        }
     }
     if ret_header.rcode() > 0 {
         println!(
             "エラーが返されました (RCODE: {:?}) 。終了します",
             ret_header.rcode()
         );
-        return;
+        return None;
     }
 
     println!("ここに答えはありませんでした。次の問い合わせ先を探します");
 
     // 次の問い合わせ先を探す
-    let begin = (ret_header.qd_count + ret_header.an_count) as usize;
-    let end = begin + (ret_header.ns_count - 1) as usize;
+    let begin = ret_header.an_count as usize;
+    let end = begin + ret_header.ns_count as usize;
     let ns_records = &resources[begin..end];
 
-    let begin = (ret_header.qd_count + ret_header.an_count + ret_header.ns_count) as usize;
-    let end = begin + (ret_header.ar_count - 1) as usize;
-    let ar_records = &resources[begin..end];
-
-    // A レコード持ってる AR レコードを適当に探すか・・・？
     println!(
-        "{:?} について、 {:?} とかが知ってるらしい。問い合わせてみましょう",
+        "{:?} について、 {:?} などが知っているようです。問い合わせてみましょう",
         ns_records[0].name, ns_records[0].nsdname
     );
+
+    if ret_header.ar_count == 0 {
+        println!(
+            "付加情報部がないので、まず問い合わせ先 {:?} の IP アドレスを調べます。",
+            ns_records[0].nsdname
+        );
+        let address = resolve(ns_records[0].nsdname.as_str(), 1);
+        println!("問い合わせ先の IP アドレスは {:?} です。", address);
+        match address {
+            Some(addr) => return resolve_iterative(fqdn, qtype, addr.as_str()),
+            None => todo!(),
+        }
+    }
+
+    let begin = (ret_header.an_count + ret_header.ns_count) as usize;
+    let end = begin + ret_header.ar_count as usize;
+    let ar_records = &resources[begin..end];
 
     for ar_record in ar_records {
         if ar_record.rr_type == 1 {
             match &ar_record.address {
                 message::IpAddr::V4(ipv4) => {
-                    resolve_iterative(fqdn, qtype, ipv4);
+                    return resolve_iterative(fqdn, qtype, ipv4);
                 }
                 message::IpAddr::V6(_) => todo!(),
             }
-            break;
         }
     }
+
+    return None;
 }
 
-pub fn resolve<'a>(fqdn: &str, qtype: u16) {
+pub fn resolve(fqdn: &str, qtype: u16) -> Option<String> {
     println!("{:?} の type {:?} を解決していくよ！", fqdn, qtype);
 
     let mut rng = rand::thread_rng();
-    let nameserver: &'a str = ROOT_NAME_SERVERS[rng.gen_range(0..ROOT_NAME_SERVERS.len())];
+    let nameserver = ROOT_NAME_SERVERS[rng.gen_range(0..ROOT_NAME_SERVERS.len())];
 
-    resolve_iterative(fqdn, qtype, nameserver);
+    return resolve_iterative(fqdn, qtype, nameserver);
 }
